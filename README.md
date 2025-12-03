@@ -72,6 +72,25 @@ npm start
 ```
 The app will open at `http://localhost:3001`.
 
+## 🌍 Deployment Guide
+
+### Frontend (Vercel)
+1.  Push your code to GitHub.
+2.  Go to [Vercel](https://vercel.com) and import your `AI-Autopilot` repository.
+3.  Set the **Root Directory** to `frontend`.
+4.  Add Environment Variable:
+    *   `REACT_APP_BACKEND_URL`: The URL of your deployed backend (e.g., `https://ai-autopilot-backend.onrender.com`).
+5.  Deploy!
+
+### Backend (Render)
+1.  Go to [Render](https://render.com) and create a new **Web Service**.
+2.  Connect your GitHub repository.
+3.  Set **Root Directory** to `backend`.
+4.  Set **Build Command**: `pip install -r requirements.txt`.
+5.  Set **Start Command**: `uvicorn main:app --host 0.0.0.0 --port 10000`.
+6.  Add Environment Variables (same as `.env` above).
+7.  Deploy!
+
 ## 📷 Demo
 *(Add a screenshot or video link here)*
 

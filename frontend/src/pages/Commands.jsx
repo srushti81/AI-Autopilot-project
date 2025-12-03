@@ -21,7 +21,8 @@ export default function Commands() {
     setLoading(true);
     setResponse("");
     try {
-      const res = await fetch("http://127.0.0.1:8001/run", {
+      const API_URL = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:8001";
+      const res = await fetch(`${API_URL}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command }),

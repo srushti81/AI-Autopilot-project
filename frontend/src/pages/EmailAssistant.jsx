@@ -40,7 +40,8 @@ export default function EmailAssistant() {
       setStatus("Generating email using AI...");
 
       // Send voice text to backend to generate email content
-      const aiRes = await fetch("http://127.0.0.1:8000/run", {
+      const API_URL = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:8001";
+      const aiRes = await fetch(`${API_URL}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command: `Write an email: ${voiceText}` }),

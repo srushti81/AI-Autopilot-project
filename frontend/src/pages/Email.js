@@ -34,7 +34,8 @@ export default function Email() {
         console.log(pair[0]+ ', ' + pair[1]); 
     }
 
-    const response = await fetch("http://localhost:8001/send-email", {
+    const API_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
+    const response = await fetch(`${API_URL}/send-email`, {
       method: "POST",
       body: formData,
     });
