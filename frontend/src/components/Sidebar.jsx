@@ -9,7 +9,7 @@ export default function Sidebar() {
     { name: "Commands", path: "/commands" },
     { name: "System Status", path: "/status" },
     { name: "Assistant", path: "/assistant" },
-    { name: "Email Assistant", path: "/email" },   // ⬅️ Added here
+    { name: "Email Assistant", path: "/email-assistant" },
   ];
 
   const linkClass = (isActive) =>

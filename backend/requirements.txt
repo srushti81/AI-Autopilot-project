@@ -6,3 +6,5 @@ pydantic
 groq
 python-dotenv
 requests
+motor
+certifi

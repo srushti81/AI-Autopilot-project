@@ -23,7 +23,7 @@ export default function App() {
             <Route path="/status" element={<Status />} />
             <Route path="/assistant" element={<Assistant />} />
             <Route path="/email" element={<Email />} />
-            <Route path="/email" element={<EmailAssistant />} />
+            <Route path="/email-assistant" element={<EmailAssistant />} />
 
           </Routes>
         </main>

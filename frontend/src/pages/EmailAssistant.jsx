@@ -76,19 +76,27 @@ export default function EmailAssistant() {
     }
 
     setStatus("Sending email...");
+    try {
+      const API_URL = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:8001";
+      const formData = new FormData();
+      formData.append("recipient", to);
+      formData.append("subject", subject);
+      formData.append("body", message);
 
-    const emailRes = await fetch("http://127.0.0.1:8000/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to, subject, message }),
-    });
+      const emailRes = await fetch(`${API_URL}/send-email`, {
+        method: "POST",
+        body: formData,
+      });
 
-    const data = await emailRes.json();
+      const data = await emailRes.json();
 
-    if (data.success) {
-      setStatus("Email sent successfully!");
-    } else {
-      setStatus("Failed to send email: " + data.error);
+      if (emailRes.ok) {
+        setStatus("Email sent successfully!");
+      } else {
+        setStatus("Failed to send email: " + (data.error || "Unknown error"));
+      }
+    } catch (err) {
+      setStatus("Network error or CORS: " + err.message);
     }
   };
 
