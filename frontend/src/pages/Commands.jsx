@@ -21,10 +21,15 @@ export default function Commands() {
     setLoading(true);
     setResponse("");
     try {
-      const API_URL = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:8001";
+      const API_URL = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+      const token = localStorage.getItem("token");
+      const headers = {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
       const res = await fetch(`${API_URL}/run`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ command }),
       });
       const data = await res.json();

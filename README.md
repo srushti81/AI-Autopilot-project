@@ -1,22 +1,35 @@
 # 🚀 AI Autopilot
 
-An intelligent, voice-activated assistant designed to streamline daily tasks and boost productivity. Whether it’s drafting emails, answering queries, or executing commands, AI Autopilot handles it all with a modern, sleek interface.
+AI Autopilot is a full-stack AI-powered web application that provides ChatGPT-like AI responses, secure authentication, email automation with attachments, and command execution — built with FastAPI + React (Vite).
 
-## 🌟 Key Features
+## ✨ Features
 
-*   **📧 Smart Email Assistant:** Compose and send emails effortlessly using voice commands or text. Supports file attachments (documents, images, etc.) with a seamless drag-and-drop experience.
-*   **🤖 AI-Powered Chat:** Integrated with the **Groq API (Llama 3.1)** to provide instant, intelligent responses to complex queries.
-*   **🎙️ Voice Control:** Hands-free operation with real-time speech-to-text integration.
-*   **⚡ Real-time Feedback:** Instant status updates and interactive chat bubbles.
-*   **🎨 Modern UI:** A responsive, dark-themed dashboard built with React and Tailwind CSS.
+*   **🤖 AI Chat Assistant (Groq / LLaMA)**
+*   **🔐 JWT Authentication (Login & Signup)**
+*   **📧 Email Sending with multiple attachments**
+*   **🧠 Command History Tracking**
+*   **📊 Dashboard & Status Pages**
+*   **⚡ FastAPI Backend**
+*   **⚛️ React + Vite Frontend**
+*   **🌐 CORS-enabled API for frontend integration**
 
-## 🛠️ Tech Stack
+## 🛠 Tech Stack
 
-*   **Frontend:** React.js, Tailwind CSS, Framer Motion, React Speech Recognition
-*   **Backend:** Python, FastAPI, Uvicorn
-*   **AI Integration:** Groq API (Llama-3.1-8b-instant)
-*   **Email Service:** FastAPI-Mail, SMTP
-*   **State Management:** React Hooks
+### Frontend
+*   React
+*   Vite
+*   React Router
+*   Tailwind CSS
+*   Fetch API
+
+### Backend
+*   FastAPI
+*   Python 3.10+
+*   MongoDB
+*   JWT Authentication
+*   Groq AI SDK
+*   SMTP (Gmail)
+*   Uvicorn
 
 ## 🚀 Getting Started
 

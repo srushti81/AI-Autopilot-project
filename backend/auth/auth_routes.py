@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException
-from backend.models.user_model import UserCreate, UserLogin
-from backend.database import db
-from backend.auth.simple_auth_utils import hash_password, verify_password
+from models.user_model import UserCreate, UserLogin
+from database import db
+from auth.simple_auth_utils import hash_password, verify_password
+from auth.auth_utils import create_access_token
 from datetime import datetime
 from bson import ObjectId
 
@@ -13,13 +14,20 @@ def signup(user: UserCreate):
     if db.users.find_one({"email": user.email}):
         raise HTTPException(status_code=400, detail="User already exists")
 
-    db.users.insert_one({
+    inserted = db.users.insert_one({
         "email": user.email,
         "password": hash_password(user.password),
         "created_at": datetime.utcnow()
     })
 
-    return {"message": "Signup successful"}
+    user_id = str(inserted.inserted_id)
+    token = create_access_token({"sub": user_id, "email": user.email})
+    return {
+        "message": "Signup successful",
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {"id": user_id, "email": user.email}
+    }
 
 
 @router.post("/login")
@@ -32,12 +40,13 @@ def login(user: UserLogin):
     if not verify_password(user.password, db_user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    user_id = str(db_user["_id"])
+    token = create_access_token({"sub": user_id, "email": db_user["email"]})
     return {
         "message": "Login successful",
-        "user": {
-            "id": str(db_user["_id"]),
-            "email": db_user["email"]
-        }
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {"id": user_id, "email": db_user["email"]}
     }
 @router.get("/me/{user_id}")
 def get_me(user_id: str):

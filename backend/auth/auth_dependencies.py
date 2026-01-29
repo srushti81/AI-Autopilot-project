@@ -5,8 +5,8 @@ import os
 
 security = HTTPBearer()
 
-JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
+JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
