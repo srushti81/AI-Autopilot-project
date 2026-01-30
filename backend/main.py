@@ -11,7 +11,8 @@ from email import encoders
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from dotenv import load_dotenv
+from config import GROQ_API_KEY, MAIL_USERNAME, MAIL_PASSWORD
+
 from groq import Groq
 import gridfs
 
@@ -24,7 +25,7 @@ from database import client as mongo_client
 # ----------------------------------------------------
 # 🔹 ENV SETUP
 # ----------------------------------------------------
-load_dotenv()
+# Moved to top
 
 logging.basicConfig(level=logging.INFO)
 
@@ -39,12 +40,20 @@ history_collection = db["history"]
 # ----------------------------------------------------
 # 🔹 AI CLIENT
 # ----------------------------------------------------
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+client = Groq(api_key=GROQ_API_KEY)
 
 # ----------------------------------------------------
 # 🔹 FASTAPI APP
 # ----------------------------------------------------
 app = FastAPI()
+
+# 🔹 Logging Middleware for Debugging
+@app.middleware("http")
+async def log_requests(request, call_next):
+    logging.info(f"Incoming request: {request.method} {request.url}")
+    response = await call_next(request)
+    logging.info(f"Response status: {response.status_code}")
+    return response
 
 app.include_router(auth_router)
 app.include_router(history_router)
@@ -54,12 +63,8 @@ app.include_router(history_router)
 # ----------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -87,6 +92,22 @@ async def ping():
 @app.get("/")
 async def root():
     return {"status": "Backend running 🚀"}
+
+@app.get("/debug-auth")
+async def debug_auth():
+    from auth.auth_dependencies import JWT_SECRET as dep_secret
+    from auth.auth_utils import JWT_SECRET as utils_secret
+    import os
+    env_secret = os.getenv("JWT_SECRET", "NOT_SET").strip()
+    return {
+        "dep_secret": f"{dep_secret[:2]}...{dep_secret[-2:]}" if len(dep_secret) > 2 else dep_secret,
+        "utils_secret": f"{utils_secret[:2]}...{utils_secret[-2:]}" if len(utils_secret) > 2 else utils_secret,
+        "env_secret": f"{env_secret[:2]}...{env_secret[-2:]}" if len(env_secret) > 2 else env_secret,
+        "all_match": dep_secret == utils_secret == env_secret,
+        "len_dep": len(dep_secret),
+        "len_utils": len(utils_secret),
+        "len_env": len(env_secret)
+    }
 
 
 # ----------------------------------------------------
@@ -132,7 +153,7 @@ async def send_email(
 ):
     try:
         msg = MIMEMultipart()
-        msg["From"] = os.getenv("MAIL_USERNAME")
+        msg["From"] = MAIL_USERNAME
         msg["To"] = recipient
         msg["Subject"] = subject
 
@@ -152,8 +173,8 @@ async def send_email(
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
         server.login(
-            os.getenv("MAIL_USERNAME"),
-            os.getenv("MAIL_PASSWORD"),
+            MAIL_USERNAME,
+            MAIL_PASSWORD,
         )
         server.send_message(msg)
         server.quit()

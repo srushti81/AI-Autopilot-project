@@ -4,11 +4,8 @@ import os
 import gridfs
 import certifi
 
-# 🔹 Load environment variables
-load_dotenv()
+from config import MONGO_URI
 
-# 🔹 Read MongoDB URI
-MONGO_URI = os.getenv("MONGO_URI")
 if not MONGO_URI:
     raise RuntimeError("MongoDB URI not configured. Set MONGO_URI in .env")
 
