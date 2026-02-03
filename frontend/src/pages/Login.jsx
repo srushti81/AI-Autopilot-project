@@ -7,16 +7,19 @@ export default function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const API_URL = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+  // ✅ Use the SAME env name you set in Vercel
+  const API_URL = import.meta.env.VITE_API_URL;
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
 
     try {
-      const res = await fetch(`${API_URL}/auth/login`, {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ email, password }),
       });
 
@@ -30,19 +33,24 @@ export default function Login() {
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      // Redirect to dashboard
       navigate("/");
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Something went wrong");
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
       <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-96 border border-gray-700">
-        <h2 className="text-3xl font-bold mb-6 text-center text-purple-400">Welcome Back</h2>
+        <h2 className="text-3xl font-bold mb-6 text-center text-purple-400">
+          Welcome Back
+        </h2>
 
-        {error && <p className="bg-red-500/20 text-red-400 p-2 rounded mb-4 text-sm">{error}</p>}
+        {error && (
+          <p className="bg-red-500/20 text-red-400 p-2 rounded mb-4 text-sm">
+            {error}
+          </p>
+        )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>

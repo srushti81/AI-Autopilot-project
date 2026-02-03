@@ -5,15 +5,14 @@ export default function EmailAssistant() {
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
-  const [files, setFiles] = useState([]); // ✅ array
+  const [files, setFiles] = useState([]);
   const [listening, setListening] = useState(false);
   const [status, setStatus] = useState("");
 
-  let recognition;
+  // ✅ SINGLE SOURCE OF TRUTH (NO localhost)
+  const API_BASE_URL = "https://ai-autopilot-back.onrender.com";
 
-  // -------------------------------------------------------
-  // 🎤 Voice Input Setup
-  // -------------------------------------------------------
+  let recognition;
   if ("webkitSpeechRecognition" in window) {
     const SpeechRecognition = window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
@@ -22,9 +21,7 @@ export default function EmailAssistant() {
     recognition.lang = "en-US";
   }
 
-  // -------------------------------------------------------
-  // 🎤 Handle Mic Button
-  // -------------------------------------------------------
+  // 🎤 Voice Input
   const startListening = () => {
     if (!recognition) {
       alert("Speech Recognition not supported");
@@ -39,32 +36,42 @@ export default function EmailAssistant() {
       const voiceText = event.results[0][0].transcript;
       setStatus("Generating email using AI...");
 
-      const API_URL =
-        import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
       const token = localStorage.getItem("token");
-      const headers = {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      };
+      if (!token) {
+        setStatus("Please login again");
+        return;
+      }
 
-      const aiRes = await fetch(`${API_URL}/run`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ command: `Write an email: ${voiceText}` }),
-      });
+      try {
+        const res = await fetch(`${API_BASE_URL}/run`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            command: `Write an email: ${voiceText}`,
+          }),
+        });
 
-      const data = await aiRes.json();
-      const aiEmail = data.response || "";
+        if (!res.ok) throw new Error("AI request failed");
 
-      const splitIndex = aiEmail.indexOf("\n");
-      const aiSubject =
-        splitIndex !== -1 ? aiEmail.substring(0, splitIndex) : aiEmail;
-      const aiBody =
-        splitIndex !== -1 ? aiEmail.substring(splitIndex + 1) : "";
+        const data = await res.json();
+        const aiEmail = data.response || "";
 
-      setSubject(aiSubject.replace("Subject:", "").trim());
-      setMessage(aiBody.trim());
-      setStatus("Email generated!");
+        const splitIndex = aiEmail.indexOf("\n");
+        const aiSubject =
+          splitIndex !== -1 ? aiEmail.substring(0, splitIndex) : aiEmail;
+        const aiBody =
+          splitIndex !== -1 ? aiEmail.substring(splitIndex + 1) : "";
+
+        setSubject(aiSubject.replace("Subject:", "").trim());
+        setMessage(aiBody.trim());
+        setStatus("Email generated!");
+      } catch (err) {
+        console.error("AI ERROR:", err);
+        setStatus("Failed to generate email");
+      }
     };
 
     recognition.onerror = () => {
@@ -73,57 +80,48 @@ export default function EmailAssistant() {
     };
   };
 
-  // -------------------------------------------------------
-  // 📎 Handle Attachments (FIXED)
-  // -------------------------------------------------------
+  // 📎 Attachments
   const handleFileChange = (e) => {
-    const selectedFiles = Array.from(e.target.files); // ✅ CRITICAL FIX
-    setFiles(selectedFiles);
+    setFiles(Array.from(e.target.files));
   };
 
-  // -------------------------------------------------------
   // 📩 Send Email
-  // -------------------------------------------------------
   const sendEmail = async () => {
     if (!to || !subject || !message) {
       alert("Please fill all fields.");
       return;
     }
 
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setStatus("Please login again");
+      return;
+    }
+
     setStatus("Sending email...");
 
     try {
-      const API_URL =
-        import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
-      const token = localStorage.getItem("token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
       const formData = new FormData();
       formData.append("recipient", to);
       formData.append("subject", subject);
       formData.append("body", message);
+      files.forEach((file) => formData.append("attachments", file));
 
-      // ✅ MULTIPLE FILES
-      files.forEach((file) => {
-        formData.append("attachments", file);
-      });
-
-      const emailRes = await fetch(`${API_URL}/send-email`, {
+      const res = await fetch(`${API_BASE_URL}/send-email`, {
         method: "POST",
-        headers,
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body: formData,
       });
 
-      const data = await emailRes.json();
+      if (!res.ok) throw new Error("Email send failed");
 
-      if (emailRes.ok) {
-        setStatus("Email sent successfully!");
-        setFiles([]); // optional reset
-      } else {
-        setStatus("Failed to send email: " + (data.error || "Unknown error"));
-      }
+      setStatus("Email sent successfully!");
+      setFiles([]);
     } catch (err) {
-      setStatus("Network error or CORS: " + err.message);
+      console.error("EMAIL ERROR:", err);
+      setStatus("Failed to send email");
     }
   };
 
@@ -160,10 +158,9 @@ export default function EmailAssistant() {
             className="w-full p-3 mt-1 bg-[#151226] h-40 rounded-lg border border-purple-700/30"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-          ></textarea>
+          />
         </div>
 
-        {/* 📎 Attachments */}
         <div>
           <label className="text-sm text-purple-300">Attachments</label>
           <input
@@ -173,7 +170,6 @@ export default function EmailAssistant() {
             className="w-full mt-2 text-sm text-purple-200"
           />
 
-          {/* ✅ SHOW SELECTED FILES */}
           {files.length > 0 && (
             <ul className="mt-2 text-sm text-purple-300">
               {files.map((file, index) => (

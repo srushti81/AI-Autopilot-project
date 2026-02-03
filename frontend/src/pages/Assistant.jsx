@@ -14,7 +14,9 @@ export default function Assistant() {
 
   useEffect(() => {
     localStorage.setItem("ai_chat", JSON.stringify(messages));
-    if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+    if (messagesRef.current) {
+      messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+    }
   }, [messages]);
 
   const addMessage = (role, text) => {
@@ -23,35 +25,47 @@ export default function Assistant() {
 
   const run = async () => {
     if (!input.trim()) return;
+
     const userText = input.trim();
     addMessage("user", userText);
     setInput("");
     setLoading(true);
 
     try {
-      const API_URL = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+      const API_BASE_URL = "https://ai-autopilot-back.onrender.com";
+
       const token = localStorage.getItem("token");
       const headers = {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
-      const res = await fetch(`${API_URL}/run`, {
+
+      const res = await fetch(`${API_BASE_URL}/run`, {
         method: "POST",
         headers,
         body: JSON.stringify({ command: userText }),
       });
+
       const data = await res.json();
-      const out = data.response ?? data.reply ?? data.output ?? JSON.stringify(data);
+      const out =
+        data.response ??
+        data.reply ??
+        data.output ??
+        "⚠️ No response from AI";
+
       addMessage("assistant", out);
-      // optional TTS:
+
+      // 🔊 Optional text-to-speech
       if (window.speechSynthesis) {
         const utter = new SpeechSynthesisUtterance(out);
         utter.lang = "en-US";
         window.speechSynthesis.speak(utter);
       }
     } catch (err) {
-      addMessage("assistant", "❌ Backend error or CORS.");
-    } finally {
+  console.error("REAL ERROR:", err);
+  setResponse(err.message);
+}
+ finally {
       setLoading(false);
     }
   };
@@ -66,12 +80,25 @@ export default function Assistant() {
       <h2 className="text-3xl font-bold mb-6">AI Assistant</h2>
 
       <div className="bg-[#171429] p-6 rounded-2xl border border-purple-700/20 shadow-xl flex flex-col">
-        <div ref={messagesRef} className="max-h-96 overflow-auto mb-4 p-2">
-          {messages.length === 0 && <div className="text-gray-400">No messages yet — say hi 👋</div>}
+        <div
+          ref={messagesRef}
+          className="max-h-96 overflow-auto mb-4 p-2"
+        >
+          {messages.length === 0 && (
+            <div className="text-gray-400">
+              No messages yet — say hi 👋
+            </div>
+          )}
+
           {messages.map((m, i) => (
             <ChatBubble key={i} role={m.role} text={m.text} />
           ))}
-          {loading && <div className="text-purple-300">Assistant is typing…</div>}
+
+          {loading && (
+            <div className="text-purple-300">
+              Assistant is typing…
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3">
@@ -82,8 +109,18 @@ export default function Assistant() {
             placeholder="Ask the assistant..."
             className="flex-1 p-3 rounded-xl bg-[#0f0d17] border border-purple-700/30 text-white"
           />
-          <button onClick={run} className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700">Send</button>
-          <button onClick={clear} className="px-4 py-2 rounded-xl border border-purple-700/30 text-gray-300">Clear</button>
+          <button
+            onClick={run}
+            className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700"
+          >
+            Send
+          </button>
+          <button
+            onClick={clear}
+            className="px-4 py-2 rounded-xl border border-purple-700/30 text-gray-300"
+          >
+            Clear
+          </button>
         </div>
       </div>
     </div>

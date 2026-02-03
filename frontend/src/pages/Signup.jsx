@@ -7,16 +7,19 @@ export default function Signup() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const API_URL = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
+  // ✅ Must match Vercel env variable
+  const API_URL = import.meta.env.VITE_API_URL;
 
   const handleSignup = async (e) => {
     e.preventDefault();
     setError("");
 
     try {
-      const res = await fetch(`${API_URL}/auth/signup`, {
+      const res = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ email, password }),
       });
 
@@ -26,20 +29,25 @@ export default function Signup() {
         throw new Error(data.detail || "Signup failed");
       }
 
-      // Automatically login after signup (optional, or redirect to login)
-      // Here we just redirect to login so they can sign in
+      // Redirect to login after successful signup
       navigate("/login");
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Something went wrong");
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
       <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-96 border border-gray-700">
-        <h2 className="text-3xl font-bold mb-6 text-center text-purple-400">Create Account</h2>
-        
-        {error && <p className="bg-red-500/20 text-red-400 p-2 rounded mb-4 text-sm">{error}</p>}
+        <h2 className="text-3xl font-bold mb-6 text-center text-purple-400">
+          Create Account
+        </h2>
+
+        {error && (
+          <p className="bg-red-500/20 text-red-400 p-2 rounded mb-4 text-sm">
+            {error}
+          </p>
+        )}
 
         <form onSubmit={handleSignup} className="space-y-4">
           <div>
