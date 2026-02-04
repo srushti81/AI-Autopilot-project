@@ -9,7 +9,7 @@ export default function Email() {
   const [listening, setListening] = useState(false);
   const [status, setStatus] = useState("");
 
-  // ✅ SINGLE SOURCE OF TRUTH
+  // ✅ Backend URL
   const API_BASE_URL = "https://ai-autopilot-back.onrender.com";
 
   let recognition;
@@ -112,7 +112,11 @@ export default function Email() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Email send failed");
+      // ✅ FIX IS HERE
+      if (!emailRes.ok) {
+        const err = await emailRes.json();
+        throw new Error(err.detail || "Email send failed");
+      }
 
       setStatus("Email sent successfully!");
       setFiles([]);
