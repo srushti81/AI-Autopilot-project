@@ -7,15 +7,19 @@ export default function Login() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  // ✅ Use the SAME env name you set in Vercel
   const API_URL = import.meta.env.VITE_API_URL;
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
 
+    if (!API_URL) {
+      setError("API URL not configured");
+      return;
+    }
+
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -29,7 +33,6 @@ export default function Login() {
         throw new Error(data.detail || "Login failed");
       }
 
-      // Store JWT token
       localStorage.setItem("token", data.access_token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
@@ -59,7 +62,7 @@ export default function Login() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-gray-700 border border-gray-600 rounded p-2 focus:outline-none focus:border-purple-500"
+              className="w-full bg-gray-700 border border-gray-600 rounded p-2"
               required
             />
           </div>
@@ -70,22 +73,19 @@ export default function Login() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-gray-700 border border-gray-600 rounded p-2 focus:outline-none focus:border-purple-500"
+              className="w-full bg-gray-700 border border-gray-600 rounded p-2"
               required
             />
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded transition"
-          >
+          <button className="w-full bg-purple-600 hover:bg-purple-700 py-2 rounded">
             Login
           </button>
         </form>
 
         <p className="mt-4 text-center text-sm text-gray-400">
           Don't have an account?{" "}
-          <Link to="/signup" className="text-purple-400 hover:text-purple-300">
+          <Link to="/signup" className="text-purple-400">
             Sign up
           </Link>
         </p>

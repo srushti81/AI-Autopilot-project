@@ -1,3 +1,4 @@
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List
 from datetime import datetime
 import os
@@ -9,7 +10,6 @@ from email.mime.base import MIMEBase
 from email import encoders
 
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from config import GROQ_API_KEY, MAIL_USERNAME, MAIL_PASSWORD
 
@@ -46,6 +46,20 @@ client = Groq(api_key=GROQ_API_KEY)
 # 🔹 FASTAPI APP
 # ----------------------------------------------------
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://ai-autopilot-project-tdz1.vercel.app",
+        "https://*.vercel.app",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 
 # 🔹 Logging Middleware for Debugging
 @app.middleware("http")
@@ -61,13 +75,7 @@ app.include_router(history_router)
 # ----------------------------------------------------
 # 🔹 CORS
 # ----------------------------------------------------
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 
 # ----------------------------------------------------
 # 🔹 MODELS

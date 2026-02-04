@@ -69,7 +69,7 @@ MAIL_SERVER=smtp.gmail.com
 
 Start the backend server:
 ```bash
-uvicorn main:app --port 8001 --reload
+uvicorn main:app --port 8000 --reload
 ```
 
 ### 3️⃣ Frontend Setup
