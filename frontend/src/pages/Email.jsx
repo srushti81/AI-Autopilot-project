@@ -114,7 +114,13 @@ export default function Email() {
         body: formData,
       });
 
-      const data = await emailRes.json();
+      let data = {};
+      try {
+        data = await emailRes.json();
+      } catch {
+        data = {};
+      }
+
 
       if (!emailRes.ok) {
         if (emailRes.status === 401) {
