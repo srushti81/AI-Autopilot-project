@@ -106,20 +106,23 @@ export default function Email() {
       formData.append("body", message);
       files.forEach((file) => formData.append("attachments", file));
 
-      const emailRes = await fetch(
-        "https://ai-autopilot-back.onrender.com/send-email",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        }
-      );
+      const emailRes = await fetch(`${API_BASE_URL}/send-email`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
 
       const data = await emailRes.json();
 
       if (!emailRes.ok) {
+        if (emailRes.status === 401) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          window.location.href = "/login";
+          throw new Error("Session expired. Please login again.");
+        }
         throw new Error(data.detail || "Email send failed");
       }
 
