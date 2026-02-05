@@ -9,7 +9,7 @@ export default function Email() {
   const [listening, setListening] = useState(false);
   const [status, setStatus] = useState("");
 
-  // ✅ Backend URL
+  // ✅ HARDCODED backend (SAFE for frontend)
   const API_BASE_URL = "https://ai-autopilot-back.onrender.com";
 
   let recognition;
@@ -21,9 +21,16 @@ export default function Email() {
     recognition.lang = "en-US";
   }
 
+  // 🎤 Voice input
   const startListening = () => {
     if (!recognition) {
       alert("Speech Recognition not supported");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setStatus("Please login again");
       return;
     }
 
@@ -33,13 +40,7 @@ export default function Email() {
     recognition.onresult = async (event) => {
       setListening(false);
       const voiceText = event.results[0][0].transcript;
-      setStatus("Generating email using AI...");
-
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setStatus("Please login again");
-        return;
-      }
+      setStatus("Generating email...");
 
       try {
         const aiRes = await fetch(`${API_BASE_URL}/run`, {
@@ -49,7 +50,7 @@ export default function Email() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            command: `Write an email: ${voiceText}`,
+            command: `Write a professional email: ${voiceText}`,
           }),
         });
 
@@ -60,22 +61,22 @@ export default function Email() {
 
         const splitIndex = aiEmail.indexOf("\n");
         const aiSubject =
-          splitIndex !== -1 ? aiEmail.substring(0, splitIndex) : aiEmail;
+          splitIndex !== -1 ? aiEmail.slice(0, splitIndex) : aiEmail;
         const aiBody =
-          splitIndex !== -1 ? aiEmail.substring(splitIndex + 1) : "";
+          splitIndex !== -1 ? aiEmail.slice(splitIndex + 1) : "";
 
         setSubject(aiSubject.replace("Subject:", "").trim());
         setMessage(aiBody.trim());
-        setStatus("Email generated!");
+        setStatus("Email generated ✔️");
       } catch (err) {
-        console.error("AI EMAIL ERROR:", err);
+        console.error(err);
         setStatus("Failed to generate email");
       }
     };
 
     recognition.onerror = () => {
       setListening(false);
-      setStatus("Voice error — try again");
+      setStatus("Voice error");
     };
   };
 
@@ -83,9 +84,10 @@ export default function Email() {
     setFiles(Array.from(e.target.files));
   };
 
+  // 📩 SEND EMAIL (FIXED)
   const sendEmail = async () => {
     if (!to || !subject || !message) {
-      alert("Please fill all fields.");
+      alert("Fill all fields");
       return;
     }
 
@@ -112,17 +114,17 @@ export default function Email() {
         body: formData,
       });
 
-      // ✅ FIX IS HERE
+      // ✅ THIS WAS THE BUG
       if (!emailRes.ok) {
-        const err = await emailRes.json();
-        throw new Error(err.detail || "Email send failed");
+        const errText = await emailRes.text();
+        throw new Error(errText);
       }
 
-      setStatus("Email sent successfully!");
+      setStatus("Email sent successfully ✅");
       setFiles([]);
     } catch (err) {
       console.error("SEND EMAIL ERROR:", err);
-      setStatus("Failed to send email");
+      setStatus("Failed to send email ❌");
     }
   };
 
@@ -130,38 +132,33 @@ export default function Email() {
     <div className="p-8 text-white">
       <h2 className="text-3xl font-bold mb-6">Email Assistant</h2>
 
-      <div className="space-y-6 bg-[#1c1a29] p-6 rounded-2xl shadow-lg border border-purple-700/30">
+      <div className="space-y-6 bg-[#1c1a29] p-6 rounded-2xl border border-purple-700/30">
         <input
-          className="w-full p-3 bg-[#151226] rounded-lg border border-purple-700/30"
           placeholder="Recipient"
           value={to}
           onChange={(e) => setTo(e.target.value)}
+          className="w-full p-3 bg-[#151226] rounded-lg"
         />
 
         <input
-          className="w-full p-3 bg-[#151226] rounded-lg border border-purple-700/30"
           placeholder="Subject"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
+          className="w-full p-3 bg-[#151226] rounded-lg"
         />
 
         <textarea
-          className="w-full p-3 bg-[#151226] h-40 rounded-lg border border-purple-700/30"
           placeholder="Message"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
+          className="w-full p-3 h-40 bg-[#151226] rounded-lg"
         />
 
-        <input
-          type="file"
-          multiple
-          onChange={handleFileChange}
-          className="w-full text-sm text-purple-200"
-        />
+        <input type="file" multiple onChange={handleFileChange} />
 
         <button
           onClick={sendEmail}
-          className="w-full p-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold"
+          className="w-full p-3 bg-purple-600 rounded-lg"
         >
           Send Email
         </button>
