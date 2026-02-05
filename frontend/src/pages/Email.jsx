@@ -106,17 +106,21 @@ export default function Email() {
       formData.append("body", message);
       files.forEach((file) => formData.append("attachments", file));
 
-      const emailRes = await fetch(`${API_BASE_URL}/send-email`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
+      const emailRes = await fetch(
+        "https://ai-autopilot-back.onrender.com/send-email",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
+
+      const data = await emailRes.json();
 
       if (!emailRes.ok) {
-        const errText = await emailRes.text();
-        throw new Error(errText || "Email send failed");
+        throw new Error(data.detail || "Email send failed");
       }
 
       setStatus("Email sent successfully!");
@@ -126,6 +130,7 @@ export default function Email() {
       setStatus(err.message || "Failed to send email");
     }
   };
+
 
 
 
