@@ -87,7 +87,7 @@ export default function Email() {
   // 📩 SEND EMAIL (FIXED)
   const sendEmail = async () => {
     if (!to || !subject || !message) {
-      alert("Fill all fields");
+      alert("Please fill all fields.");
       return;
     }
 
@@ -114,19 +114,20 @@ export default function Email() {
         body: formData,
       });
 
-      // ✅ THIS WAS THE BUG
       if (!emailRes.ok) {
         const errText = await emailRes.text();
-        throw new Error(errText);
+        throw new Error(errText || "Email send failed");
       }
 
-      setStatus("Email sent successfully ✅");
+      setStatus("Email sent successfully!");
       setFiles([]);
     } catch (err) {
       console.error("SEND EMAIL ERROR:", err);
-      setStatus("Failed to send email ❌");
+      setStatus(err.message || "Failed to send email");
     }
   };
+
+
 
   return (
     <div className="p-8 text-white">
