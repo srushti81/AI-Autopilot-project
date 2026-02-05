@@ -9,8 +9,8 @@ export default function Email() {
   const [listening, setListening] = useState(false);
   const [status, setStatus] = useState("");
 
-  // ✅ HARDCODED backend (SAFE for frontend)
-  const API_BASE_URL = "https://ai-autopilot-back.onrender.com";
+  // 🔹 API Base URL (Configurable)
+  const API_BASE_URL = import.meta.env.VITE_API_URL || "https://ai-autopilot-back.onrender.com";
 
   let recognition;
   if ("webkitSpeechRecognition" in window) {
