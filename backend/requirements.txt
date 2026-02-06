@@ -9,3 +9,4 @@ requests
 motor
 certifi
 python-jose
+resend

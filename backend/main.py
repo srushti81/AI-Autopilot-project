@@ -1,48 +1,51 @@
-from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List
 from datetime import datetime
 import logging
-import smtplib
 import traceback
-
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
+import os
 
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from pydantic import BaseModel
 
-from config import GROQ_API_KEY, MAIL_USERNAME, MAIL_PASSWORD
+from config import GROQ_API_KEY
 from groq import Groq
 import gridfs
+import resend
 
-# LOCAL IMPORTS
+# ✅ LOCAL IMPORTS
 from auth.auth_routes import router as auth_router
 from auth.auth_dependencies import get_current_user
 from history.history_routes import router as history_router
 from database import client as mongo_client
 
 # ----------------------------------------------------
-# LOGGING
+# 🔹 ENV
 # ----------------------------------------------------
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+MAIL_FROM = os.getenv("MAIL_FROM", "no-reply@resend.dev")
+
+if not RESEND_API_KEY:
+    raise RuntimeError("RESEND_API_KEY not set")
+
+resend.api_key = RESEND_API_KEY
+
 logging.basicConfig(level=logging.INFO)
 
 # ----------------------------------------------------
-# DATABASE
+# 🔹 DATABASE
 # ----------------------------------------------------
 db = mongo_client["ai_autopilot"]
 fs = gridfs.GridFS(db)
 history_collection = db["history"]
 
 # ----------------------------------------------------
-# AI CLIENT
+# 🔹 AI CLIENT
 # ----------------------------------------------------
 client = Groq(api_key=GROQ_API_KEY)
 
 # ----------------------------------------------------
-# FASTAPI APP
+# 🔹 FASTAPI APP
 # ----------------------------------------------------
 app = FastAPI()
 
@@ -52,38 +55,31 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "https://ai-autopilot-project-tdz1.vercel.app",
-        "https://*.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ----------------------------------------------------
-# REQUEST LOGGER
-# ----------------------------------------------------
 @app.middleware("http")
 async def log_requests(request, call_next):
     logging.info(f"{request.method} {request.url}")
     response = await call_next(request)
-    logging.info(f"Response {response.status_code}")
+    logging.info(f"Status {response.status_code}")
     return response
 
-# ----------------------------------------------------
-# ROUTERS
-# ----------------------------------------------------
 app.include_router(auth_router)
 app.include_router(history_router)
 
 # ----------------------------------------------------
-# MODELS
+# 🔹 MODELS
 # ----------------------------------------------------
 class UserRequest(BaseModel):
     command: str
     user_id: Optional[str] = None
 
 # ----------------------------------------------------
-# HEALTH
+# 🔹 HEALTH
 # ----------------------------------------------------
 @app.get("/")
 async def root():
@@ -92,80 +88,51 @@ async def root():
 @app.get("/ping")
 async def ping():
     mongo_client.admin.command("ping")
-    return {"status": "ok", "db": "connected"}
+    return {"db": "connected"}
 
 # ----------------------------------------------------
-# AI COMMAND
+# 🔹 AI
 # ----------------------------------------------------
 @app.post("/run")
 async def run_command(
     request: UserRequest,
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_user)
 ):
-    try:
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": request.command}],
-        )
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[{"role": "user", "content": request.command}],
+    )
 
-        result = response.choices[0].message.content
-        user_id = request.user_id or current_user.get("sub")
+    result = response.choices[0].message.content
 
-        history_collection.insert_one({
-            "user_id": user_id,
-            "command": request.command,
-            "response": result,
-            "created_at": datetime.utcnow(),
-        })
+    history_collection.insert_one({
+        "user_id": current_user["sub"],
+        "command": request.command,
+        "response": result,
+        "created_at": datetime.utcnow(),
+    })
 
-        return {"response": result}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"response": result}
 
 # ----------------------------------------------------
-# SMTP (SYNC FUNCTION)
-# ----------------------------------------------------
-def send_email_sync(msg: MIMEMultipart):
-    server = smtplib.SMTP("smtp.gmail.com", 587, timeout=20)
-    server.starttls()
-    server.login(MAIL_USERNAME, MAIL_PASSWORD)
-    server.send_message(msg)
-    server.quit()
-
-# ----------------------------------------------------
-# SEND EMAIL (NO AUTH – IMPORTANT)
+# 🔹 SEND EMAIL (RESEND)
 # ----------------------------------------------------
 @app.post("/send-email")
 async def send_email(
     recipient: str = Form(...),
     subject: str = Form(...),
     body: str = Form(...),
-    attachments: List[UploadFile] = File(default=[]),
+    current_user=Depends(get_current_user),
 ):
     try:
-        msg = MIMEMultipart()
-        msg["From"] = MAIL_USERNAME
-        msg["To"] = recipient
-        msg["Subject"] = subject
+        email = resend.Emails.send({
+            "from": MAIL_FROM,
+            "to": recipient,
+            "subject": subject,
+            "html": f"<p>{body}</p>",
+        })
 
-        msg.attach(MIMEText(body, "plain"))
-
-        for file in attachments:
-            data = await file.read()
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(data)
-            encoders.encode_base64(part)
-            part.add_header(
-                "Content-Disposition",
-                f'attachment; filename="{file.filename}"'
-            )
-            msg.attach(part)
-
-        # ✅ IMPORTANT: Run SMTP in threadpool
-        await run_in_threadpool(send_email_sync, msg)
-
-        return {"message": "Email sent successfully"}
+        return {"message": "Email sent successfully", "id": email["id"]}
 
     except Exception as e:
         traceback.print_exc()
