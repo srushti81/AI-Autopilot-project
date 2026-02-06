@@ -159,8 +159,8 @@ async def send_email(
     subject: str = Form(...),
     body: str = Form(...),
     attachments: List[UploadFile] = File(default=[]),
-    current_user=Depends(get_current_user),
 ):
+
     try:
         msg = MIMEMultipart()
         msg["From"] = MAIL_USERNAME
