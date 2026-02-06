@@ -1,3 +1,4 @@
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List
 from datetime import datetime
@@ -10,6 +11,7 @@ from email.mime.base import MIMEBase
 from email import encoders
 
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
+import traceback
 from pydantic import BaseModel
 from config import GROQ_API_KEY, MAIL_USERNAME, MAIL_PASSWORD
 
@@ -164,7 +166,6 @@ async def send_email(
         msg["From"] = MAIL_USERNAME
         msg["To"] = recipient
         msg["Subject"] = subject
-
         msg.attach(MIMEText(body, "plain"))
 
         for file in attachments:
@@ -178,16 +179,11 @@ async def send_email(
             )
             msg.attach(part)
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(
-            MAIL_USERNAME,
-            MAIL_PASSWORD,
-        )
-        server.send_message(msg)
-        server.quit()
+        # ✅ RUN BLOCKING SMTP SAFELY
+        await run_in_threadpool(send_email_sync, msg)
 
         return {"message": "Email sent successfully"}
 
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
