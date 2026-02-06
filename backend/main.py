@@ -1,34 +1,42 @@
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 import logging
-import os
 import traceback
+import os
 
+from fastapi import FastAPI, Form, Depends, HTTPException
 from pydantic import BaseModel
-from groq import Groq
-import gridfs
-from database import client as mongo_client
 
+from groq import Groq
+import resend
+import gridfs
+
+# ✅ LOCAL IMPORTS
 from auth.auth_routes import router as auth_router
 from auth.auth_dependencies import get_current_user
 from history.history_routes import router as history_router
-
-import resend
+from database import client as mongo_client
+from config import GROQ_API_KEY
 
 # ----------------------------------------------------
-# 🔹 ENV
+# 🔹 ENV SETUP
 # ----------------------------------------------------
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+
+# ⚠️ IMPORTANT:
+# Test mode sender — DO NOT change until domain is verified
+MAIL_FROM = "onboarding@resend.dev"
+
+if not RESEND_API_KEY:
+    raise RuntimeError("RESEND_API_KEY not set")
 
 resend.api_key = RESEND_API_KEY
 
 logging.basicConfig(level=logging.INFO)
 
 # ----------------------------------------------------
-# 🔹 DB
+# 🔹 DATABASE
 # ----------------------------------------------------
 db = mongo_client["ai_autopilot"]
 fs = gridfs.GridFS(db)
@@ -40,7 +48,7 @@ history_collection = db["history"]
 client = Groq(api_key=GROQ_API_KEY)
 
 # ----------------------------------------------------
-# 🔹 APP
+# 🔹 FASTAPI APP
 # ----------------------------------------------------
 app = FastAPI()
 
@@ -50,21 +58,17 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "https://ai-autopilot-project-tdz1.vercel.app",
-        "https://*.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ----------------------------------------------------
-# 🔹 LOGGING
-# ----------------------------------------------------
 @app.middleware("http")
 async def log_requests(request, call_next):
     logging.info(f"{request.method} {request.url}")
     response = await call_next(request)
-    logging.info(f"Response {response.status_code}")
+    logging.info(f"Status {response.status_code}")
     return response
 
 app.include_router(auth_router)
@@ -86,39 +90,35 @@ async def root():
 
 @app.get("/ping")
 async def ping():
-    return {"status": "ok"}
+    mongo_client.admin.command("ping")
+    return {"db": "connected"}
 
 # ----------------------------------------------------
-# 🔹 AI RUN
+# 🔹 AI COMMAND
 # ----------------------------------------------------
 @app.post("/run")
 async def run_command(
     request: UserRequest,
     current_user=Depends(get_current_user)
 ):
-    try:
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": request.command}],
-        )
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[{"role": "user", "content": request.command}],
+    )
 
-        result = response.choices[0].message.content
-        user_id = request.user_id or current_user.get("sub")
+    result = response.choices[0].message.content
 
-        history_collection.insert_one({
-            "user_id": user_id,
-            "command": request.command,
-            "response": result,
-            "created_at": datetime.utcnow(),
-        })
+    history_collection.insert_one({
+        "user_id": current_user["sub"],
+        "command": request.command,
+        "response": result,
+        "created_at": datetime.utcnow(),
+    })
 
-        return {"response": result}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"response": result}
 
 # ----------------------------------------------------
-# 🔹 SEND EMAIL (RESEND)
+# 🔹 SEND EMAIL (RESEND – TEST MODE)
 # ----------------------------------------------------
 @app.post("/send-email")
 async def send_email(
@@ -128,8 +128,10 @@ async def send_email(
     current_user=Depends(get_current_user),
 ):
     try:
-        response = resend.Emails.send({
-            "from": "onboarding@resend.dev",
+        # ⚠️ TEST MODE RULE:
+        # recipient MUST be your Resend account email
+        email = resend.Emails.send({
+            "from": MAIL_FROM,
             "to": recipient,
             "subject": subject,
             "html": f"<p>{body}</p>",
@@ -137,7 +139,7 @@ async def send_email(
 
         return {
             "message": "Email sent successfully",
-            "resend_id": response["id"]
+            "id": email["id"]
         }
 
     except Exception as e:
