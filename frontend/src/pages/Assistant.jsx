@@ -32,7 +32,7 @@ export default function Assistant() {
     setLoading(true);
 
     try {
-      const API_BASE_URL = "https://ai-autopilot-back.onrender.com";
+      const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
       const token = localStorage.getItem("token");
       const headers = {
@@ -62,10 +62,10 @@ export default function Assistant() {
         window.speechSynthesis.speak(utter);
       }
     } catch (err) {
-  console.error("REAL ERROR:", err);
-  setResponse(err.message);
-}
- finally {
+      console.error("REAL ERROR:", err);
+      setResponse(err.message);
+    }
+    finally {
       setLoading(false);
     }
   };

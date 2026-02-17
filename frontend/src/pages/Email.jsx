@@ -10,7 +10,7 @@ export default function Email() {
   const [status, setStatus] = useState("");
 
   // 🔹 API Base URL (Configurable)
-  const API_BASE_URL = import.meta.env.VITE_API_URL || "https://ai-autopilot-back.onrender.com";
+  const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
   let recognition;
   if ("webkitSpeechRecognition" in window) {
@@ -129,6 +129,7 @@ export default function Email() {
           window.location.href = "/login";
           throw new Error("Session expired. Please login again.");
         }
+        // data already parsed above
         throw new Error(data.detail || "Email send failed");
       }
 

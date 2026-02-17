@@ -8,14 +8,14 @@ export default function Signup() {
   const navigate = useNavigate();
 
   // ✅ Must match Vercel env variable
-  const API_URL = import.meta.env.VITE_API_URL;
+  const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
   const handleSignup = async (e) => {
     e.preventDefault();
     setError("");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/signup`, {
+      const res = await fetch(`${API_URL}/auth/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

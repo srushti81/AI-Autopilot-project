@@ -9,8 +9,8 @@ export default function EmailAssistant() {
   const [listening, setListening] = useState(false);
   const [status, setStatus] = useState("");
 
-  // ✅ SINGLE SOURCE OF TRUTH (NO localhost)
-  const API_BASE_URL = "https://ai-autopilot-back.onrender.com";
+  // ✅ SINGLE SOURCE OF TRUTH
+  const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
   let recognition;
   if ("webkitSpeechRecognition" in window) {
@@ -115,7 +115,10 @@ export default function EmailAssistant() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Email send failed");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Email send failed");
+      }
 
       setStatus("Email sent successfully!");
       setFiles([]);

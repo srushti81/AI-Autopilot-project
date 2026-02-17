@@ -7,7 +7,7 @@ load_dotenv(find_dotenv())
 # ----------------------------------------------------
 # 🔹 JWT CONFIG
 # ----------------------------------------------------
-JWT_SECRET = (os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY") or "dev-secret").strip()
+JWT_SECRET = (os.getenv("JWT_SECRET") or os.getenv("JWT_SECRET_KEY") or os.getenv("SECRET_KEY") or "dev-secret").strip()
 JWT_ALGORITHM = (os.getenv("JWT_ALGORITHM") or os.getenv("ALGORITHM") or "HS256").strip()
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES") or os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES") or 60)
 

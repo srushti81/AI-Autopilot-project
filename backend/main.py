@@ -5,8 +5,14 @@ import logging
 import traceback
 import os
 
-from fastapi import FastAPI, Form, Depends, HTTPException
+from fastapi import FastAPI, Form, Depends, HTTPException, File, UploadFile
+from typing import Optional, List
 from pydantic import BaseModel
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 
 from groq import Groq
 import resend
@@ -17,7 +23,7 @@ from auth.auth_routes import router as auth_router
 from auth.auth_dependencies import get_current_user
 from history.history_routes import router as history_router
 from database import client as mongo_client
-from config import GROQ_API_KEY
+from config import GROQ_API_KEY, MAIL_USERNAME, MAIL_PASSWORD, MAIL_SERVER, MAIL_PORT, MAIL_FROM
 
 # ----------------------------------------------------
 # 🔹 ENV SETUP
@@ -26,12 +32,12 @@ RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
 # ⚠️ IMPORTANT:
 # Test mode sender — DO NOT change until domain is verified
-MAIL_FROM = "onboarding@resend.dev"
+MAIL_FROM_RESEND = "onboarding@resend.dev"
 
 if not RESEND_API_KEY:
-    raise RuntimeError("RESEND_API_KEY not set")
-
-resend.api_key = RESEND_API_KEY
+    logging.warning("RESEND_API_KEY not set. Email functionality will be disabled.")
+else:
+    resend.api_key = RESEND_API_KEY
 
 logging.basicConfig(level=logging.INFO)
 
@@ -57,6 +63,15 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "http://localhost:5175",
+        "http://127.0.0.1:5175",
+        "http://localhost:5176",
+        "http://127.0.0.1:5176",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://0.0.0.0:5173",
         "https://ai-autopilot-project-tdz1.vercel.app",
     ],
     allow_credentials=True,
@@ -101,47 +116,83 @@ async def run_command(
     request: UserRequest,
     current_user=Depends(get_current_user)
 ):
-    response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=[{"role": "user", "content": request.command}],
-    )
+    print(f"🔹 Received AI command: {request.command}")
+    
+    if not GROQ_API_KEY:
+        print("❌ Error: GROQ_API_KEY is not set in environment.")
+        raise HTTPException(status_code=500, detail="AI API key not configured")
 
-    result = response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": request.command}],
+        )
 
-    history_collection.insert_one({
-        "user_id": current_user["sub"],
-        "command": request.command,
-        "response": result,
-        "created_at": datetime.utcnow(),
-    })
+        result = response.choices[0].message.content
+        print(f"✅ AI Response: {result[:50]}...")
 
-    return {"response": result}
+        history_collection.insert_one({
+            "user_id": current_user["sub"],
+            "command": request.command,
+            "response": result,
+            "created_at": datetime.utcnow(),
+        })
+
+        return {"response": result}
+
+    except Exception as e:
+        print(f"❌ AI ERROR: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"AI Error: {str(e)}")
 
 # ----------------------------------------------------
-# 🔹 SEND EMAIL (RESEND – TEST MODE)
+# 🔹 SEND EMAIL (GMAIL SMTP)
+# ----------------------------------------------------
+# ----------------------------------------------------
+# 🔹 SEND EMAIL (GMAIL SMTP)
 # ----------------------------------------------------
 @app.post("/send-email")
 async def send_email(
     recipient: str = Form(...),
     subject: str = Form(...),
     body: str = Form(...),
+    attachments: List[UploadFile] = File(None),
     current_user=Depends(get_current_user),
 ):
     try:
-        # ⚠️ TEST MODE RULE:
-        # recipient MUST be your Resend account email
-        email = resend.Emails.send({
-            "from": MAIL_FROM,
-            "to": recipient,
-            "subject": subject,
-            "html": f"<p>{body}</p>",
-        })
+        if not MAIL_USERNAME or not MAIL_PASSWORD:
+            raise HTTPException(status_code=500, detail="Mail credentials not configured")
 
-        return {
-            "message": "Email sent successfully",
-            "id": email["id"]
-        }
+        msg = MIMEMultipart()
+        msg["From"] = MAIL_FROM or MAIL_USERNAME
+        msg["To"] = recipient
+        msg["Subject"] = subject
+
+        msg.attach(MIMEText(body, "plain"))
+
+        if attachments:
+            for attachment in attachments:
+                part = MIMEBase("application", "octet-stream")
+                content = await attachment.read()
+                part.set_payload(content)
+                encoders.encode_base64(part)
+                part.add_header(
+                    "Content-Disposition",
+                    f"attachment; filename={attachment.filename}",
+                )
+                msg.attach(part)
+
+        # ✅ Correct SMTP block (INSIDE try)
+        server = smtplib.SMTP(MAIL_SERVER, MAIL_PORT)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(MAIL_USERNAME, MAIL_PASSWORD)
+        server.sendmail(MAIL_USERNAME, recipient, msg.as_string())
+        server.quit()
+
+        return {"message": "Email sent successfully via Gmail"}
 
     except Exception as e:
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"SMTP Error: {str(e)}")

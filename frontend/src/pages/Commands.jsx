@@ -7,7 +7,7 @@ export default function Commands() {
   const [history, setHistory] = useState([]);
 
   // ✅ ONE source of truth
-  const API_BASE_URL = "https://ai-autopilot-back.onrender.com";
+  const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
   useEffect(() => {
     setHistory(JSON.parse(localStorage.getItem("ai_history") || "[]"));
@@ -56,10 +56,10 @@ export default function Commands() {
         t: Date.now(),
       });
     } catch (err) {
-  console.error("REAL ERROR:", err);
-  setResponse(err.message);
-}
- finally {
+      console.error("REAL ERROR:", err);
+      setResponse(err.message);
+    }
+    finally {
       setLoading(false);
     }
   };
