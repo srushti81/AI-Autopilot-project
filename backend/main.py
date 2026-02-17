@@ -73,6 +73,7 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://0.0.0.0:5173",
         "https://ai-autopilot-project-tdz1.vercel.app",
+        "https://*.netlify.app", # ✅ Allow all netlify subdomains
     ],
     allow_credentials=True,
     allow_methods=["*"],
