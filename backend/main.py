@@ -158,43 +158,23 @@ async def send_email(
     recipient: str = Form(...),
     subject: str = Form(...),
     body: str = Form(...),
-    attachments: List[UploadFile] = File(None),
     current_user=Depends(get_current_user),
 ):
     try:
-        if not MAIL_USERNAME or not MAIL_PASSWORD:
-            raise HTTPException(status_code=500, detail="Mail credentials not configured")
+        if not RESEND_API_KEY:
+            raise HTTPException(status_code=500, detail="Resend API key not configured")
 
-        msg = MIMEMultipart()
-        msg["From"] = MAIL_FROM or MAIL_USERNAME
-        msg["To"] = recipient
-        msg["Subject"] = subject
+        response = resend.Emails.send({
+            "from": "onboarding@resend.dev",
+            "to": recipient,
+            "subject": subject,
+            "text": body,
+        })
 
-        msg.attach(MIMEText(body, "plain"))
+        print("✅ Email sent via Resend:", response)
 
-        if attachments:
-            for attachment in attachments:
-                part = MIMEBase("application", "octet-stream")
-                content = await attachment.read()
-                part.set_payload(content)
-                encoders.encode_base64(part)
-                part.add_header(
-                    "Content-Disposition",
-                    f"attachment; filename={attachment.filename}",
-                )
-                msg.attach(part)
-
-        # ✅ Correct SMTP block (INSIDE try)
-        server = smtplib.SMTP(MAIL_SERVER, MAIL_PORT)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-        server.login(MAIL_USERNAME, MAIL_PASSWORD)
-        server.sendmail(MAIL_USERNAME, recipient, msg.as_string())
-        server.quit()
-
-        return {"message": "Email sent successfully via Gmail"}
+        return {"message": "Email sent successfully via Resend"}
 
     except Exception as e:
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"SMTP Error: {str(e)}")
+        print("❌ RESEND ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
