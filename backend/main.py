@@ -1,18 +1,13 @@
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 import logging
 import traceback
 import os
+import base64
 
 from fastapi import FastAPI, Form, Depends, HTTPException, File, UploadFile
-from typing import Optional, List
 from pydantic import BaseModel
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
 
 from groq import Groq
 import resend
@@ -23,21 +18,20 @@ from auth.auth_routes import router as auth_router
 from auth.auth_dependencies import get_current_user
 from history.history_routes import router as history_router
 from database import client as mongo_client
-from config import GROQ_API_KEY, MAIL_USERNAME, MAIL_PASSWORD, MAIL_SERVER, MAIL_PORT, MAIL_FROM
+from config import GROQ_API_KEY
 
 # ----------------------------------------------------
 # 🔹 ENV SETUP
 # ----------------------------------------------------
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
-# ⚠️ IMPORTANT:
-# Test mode sender — DO NOT change until domain is verified
+# Test sender (works without domain verification)
 MAIL_FROM_RESEND = "onboarding@resend.dev"
 
-if not RESEND_API_KEY:
-    logging.warning("RESEND_API_KEY not set. Email functionality will be disabled.")
-else:
+if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
+else:
+    logging.warning("⚠️ RESEND_API_KEY not set. Email functionality disabled.")
 
 logging.basicConfig(level=logging.INFO)
 
@@ -60,22 +54,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-        "http://localhost:5175",
-        "http://127.0.0.1:5175",
-        "http://localhost:5176",
-        "http://127.0.0.1:5176",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://0.0.0.0:5173",
-        "https://ai-autopilot-project-tdz1.vercel.app",
-        "https://ai-autopilot.netlify.app", # ✅ Explicitly allow your domain
-        "https://*.netlify.app", 
-    ],
+    allow_origins=["*"],  # You can restrict later
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -118,10 +97,7 @@ async def run_command(
     request: UserRequest,
     current_user=Depends(get_current_user)
 ):
-    print(f"🔹 Received AI command: {request.command}")
-    
     if not GROQ_API_KEY:
-        print("❌ Error: GROQ_API_KEY is not set in environment.")
         raise HTTPException(status_code=500, detail="AI API key not configured")
 
     try:
@@ -131,7 +107,6 @@ async def run_command(
         )
 
         result = response.choices[0].message.content
-        print(f"✅ AI Response: {result[:50]}...")
 
         history_collection.insert_one({
             "user_id": current_user["sub"],
@@ -143,15 +118,11 @@ async def run_command(
         return {"response": result}
 
     except Exception as e:
-        print(f"❌ AI ERROR: {str(e)}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"AI Error: {str(e)}")
 
 # ----------------------------------------------------
-# 🔹 SEND EMAIL (GMAIL SMTP)
-# ----------------------------------------------------
-# ----------------------------------------------------
-# 🔹 SEND EMAIL (GMAIL SMTP)
+# 🔹 SEND EMAIL (RESEND API)
 # ----------------------------------------------------
 @app.post("/send-email")
 async def send_email(
@@ -159,22 +130,34 @@ async def send_email(
     subject: str = Form(...),
     body: str = Form(...),
     current_user=Depends(get_current_user),
+    attachments: List[UploadFile] = File(None),
 ):
     try:
         if not RESEND_API_KEY:
             raise HTTPException(status_code=500, detail="Resend API key not configured")
 
+        attachment_list = []
+        if attachments:
+            for attachment in attachments:
+                file_content = await attachment.read()
+                attachment_list.append({
+                    "filename": attachment.filename,
+                    "content": base64.b64encode(file_content).decode(),
+                })
+
         response = resend.Emails.send({
-            "from": "onboarding@resend.dev",
+            "from": MAIL_FROM_RESEND,
             "to": recipient,
             "subject": subject,
             "text": body,
+            "attachments": attachment_list
         })
 
-        print("✅ Email sent via Resend:", response)
+        logging.info(f"✅ Email sent via Resend: {response}")
 
         return {"message": "Email sent successfully via Resend"}
 
     except Exception as e:
-        print("❌ RESEND ERROR:", str(e))
+        logging.error(f"❌ RESEND ERROR: {str(e)}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
